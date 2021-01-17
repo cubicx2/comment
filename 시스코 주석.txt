@@ -1,0 +1,182 @@
+Current configuration : 6989 bytes
+!
+version 15.7
+service tcp-keepalives-in                    //
+service timestamps debug datetime msec localtime show-timezone
+service timestamps log datetime msec localtime show-timezone
+service password-encryption          //패스워드 암호화 
+!
+hostname C2921_kdxsei               //호스트 이름  C2921_kdxsei  
+!
+boot-start-marker                       //부트 설정 시작
+boot system flash0:c2900-universalk9-mz.SPA.157-3.M5.bin   //부트 이미지 지정
+boot-end-marker                        //부트 설정 끝
+!
+logging buffered 512000 notifications
+enable secret 4 nKXwFJDxw/1VfHmh89FJmTy2iy2W4CxAqi1U9wsiA56
+
+no aaa new-model                     //외부 인증장치 이용 불허
+clock timezone GMT 9 0              //장비 타임존 설정
+!
+no ip source-route                 //ip 스푸핑을 막기위한 보안 
+!
+no ip domain lookup                  //도메인으로 검색하지 않기         
+ip name-server 203.241.132.34        //
+ip name-server 108.81.14.6
+ip cef          
+no ipv6 cef
+!
+multilink bundle-name authenticated
+!
+license udi pid CISCO2921/K9 sn FTX1836AJGU
+!
+!
+username japanse secret 4 ms10awdYj/pColkgX.Vq/pMoezO3n34IiEA/qRotLO2
+!
+redundancy     //이중화
+!
+interface Loopback1
+ description [CISCO2911/K9 FGL182611BU 15.2(4)M6]
+ ip address 108.80.8.103 255.255.255.255
+!
+interface Embedded-Service-Engine0/0    //Embedded-Service-Engine0/0 설정 모드 진입
+ no ip address                         //ip 주소 설정 무효화
+ shutdown                           //Embedded-Service-Engine0/0 무효화
+!
+interface GigabitEthernet0/0
+ description [KDDI PEN 5M E154687160]
+ bandwidth 1000000
+ ip address 108.81.113.5 255.255.255.0
+ no ip redirects
+ no ip unreachables
+ no ip proxy-arp
+ ip flow ingress
+ ip ospf hello-interval 3
+ ip ospf cost 1000
+ delay 1
+ duplex full
+ speed 10
+ rj45-auto-detect-polarity disable
+!
+interface GigabitEthernet0/1
+ description [Cat2960_kdxsei Gig0/1]
+ ip address 108.81.117.1 255.255.255.0
+ no ip redirects
+ no ip unreachables
+ no ip proxy-arp                    //Proxy ARP
+ duplex full                        //양방향 통신 전방향 (송수신 가능)
+ speed 1000
+!
+interface GigabitEthernet0/2       // GigabitEthernet0/2 인터페이스 설정모드 진입
+ no ip address                      //ip 주소 설정 무효
+ shutdown                           //인터페이스 설정 중단 
+ duplex auto                        //양방향 통신 자동 /half/full/auto 
+ speed auto                          //속도 설정 자동
+!
+interface GigabitEthernet0/0/0      // GigabitEthernet0/0/0 인터페이스 설정모드 진입
+ no ip address                      //ip 주소 설정 무효
+!
+interface GigabitEthernet0/0/1      // GigabitEthernet0/0/1 인터페이스 설정모드 진입
+ no ip address                      //ip 주소 설정 무효
+!
+interface GigabitEthernet0/0/2      // GigabitEthernet0/0/2 인터페이스 설정모드 진입
+ no ip address                      //ip 주소 설정 무효
+!
+interface GigabitEthernet0/0/3      // GigabitEthernet0/0/3 인터페이스 설정모드 진입
+ no ip address                      //ip 주소 설정 무효
+!
+interface Vlan1                     //Vlan1 설정모드 진입
+ no ip address                      //ip 주소 설정 무료
+!
+!
+router eigrp 108　　　　　　　　　　　　　　//EIGRP 라우팅
+ network 108.0.0.0                       //
+ passive-interface GigabitEthernet0/0   // GigabitEthernet0/0 라우팅 프로토콜에 대한 업데이트내용은 수신만 한다.
+!
+router ospf 108
+ router-id 108.80.8.103              //OSPF를 기동하는 라우터
+ ispf                             
+ auto-cost reference-bandwidth 10000      //OSPF기준 대역폭 증가
+ area 0 filter-list prefix KDX_Sei in     //에리어 필터 리스트를 정의하여 에리어간 경로정보 필터설정을 실행
+ area 108 filter-list prefix Japan_Filter in
+ timers throttle spf 100 500 5000            // SPF 생성 제어하는 시간 설정 (계산시작시간 100ms/유지간격 500ms/최대 계산시간 5000ms)
+ timers throttle lsa 100 500 5000            // LSA 생성 제어하는 시간 설정
+ timers lsa arrival 500                      // LSA를 받는 최소 간격 시간 설정
+ network 108.80.8.103 0.0.0.0 area 108
+ network 108.81.113.5 0.0.0.0 area 0
+ network 108.81.117.1 0.0.0.0 area 108
+!
+ip forward-protocol nd              //Network Disk 프로토콜을 포워드
+!
+no ip http server                   //라우터 http 서버 정지
+no ip http secure-server            //라우터 https 서버 정지
+ip flow-top-talkers
+ top 20
+ sort-by bytes
+ cache-timeout 10000
+!
+ip route 0.0.0.0 0.0.0.0 108.81.113.1 name Default_C2911_20ma
+!
+ip access-list standard SNMP_ACL
+ permit 104.104.104.104
+
+ip access-list standard VTY_ACL
+ permit 104.104.104.104
+!
+ip prefix-list Japan_Filter seq 1000 permit 0.0.0.0/0 le 32
+!
+ip prefix-list KDX_Sei seq 5 permit 108.81.117.0/24
+ip prefix-list KDX_Sei seq 10 permit 108.80.8.103/32
+logging trap notifications
+logging source-interface Loopback1
+logging host 104.104.104.71
+logging host 182.195.85.12
+logging host 108.81.171.207
+ipv6 ioam timestamp
+!
+snmp-server community asia RW SNMP_ACL
+snmp-server community sdsnw02 RO SNMP_ACL
+snmp-server community sjcis767 RW SNMP_ACL
+snmp-server community ssjapan RW SNMP_ACL
+snmp-server community dlfrrl_ehdskadk1 RO SNMP_ACL
+snmp-server enable traps entity-sensor threshold
+!
+control-plane
+!
+banner motd ^CC                       //배너 설정
+********************************************************************************
+*                               W A R N I N G                                  *
+********************************************************************************
+^C
+!
+line con 0
+ logging synchronous
+line aux 0
+ no exec
+line 2
+ no activation-character
+ no exec
+ transport preferred none
+ transport output pad telnet rlogin lapb-ta mop udptn v120 ssh
+ stopbits 1
+line vty 0 4
+ access-class VTY_ACL in
+ exec-timeout 5 0
+ password 7 021501510A160E2F1C1E58
+ logging synchronous
+ login local
+ transport input telnet ssh
+line vty 5 15
+ access-class VTY_ACL in
+ exec-timeout 5 0
+ logging synchronous
+ login local
+ transport input telnet ssh
+!
+scheduler allocate 20000 1000
+
+ntp source Loopback1
+ntp update-calendar
+ntp server 108.80.1.3
+ntp server 108.80.1.4
+end
